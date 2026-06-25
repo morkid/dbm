@@ -1,6 +1,8 @@
 module github.com/morkid/dbm
 
-go 1.18
+go 1.21
+
+toolchain go1.21.13
 
 require (
 	github.com/glebarez/sqlite v1.11.0

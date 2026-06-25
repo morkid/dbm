@@ -2,7 +2,7 @@
 
 > Simple Database Connection Manager for GORM
 
-[![Go Version](https://img.shields.io/badge/go-1.18+-00ADD8?logo=go)](https://go.dev)
+[![Go Version](https://img.shields.io/badge/go-1.21+-00ADD8?logo=go)](https://go.dev)
 [![Go Reference](https://pkg.go.dev/badge/github.com/morkid/dbm.svg)](https://pkg.go.dev/github.com/morkid/dbm)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](.)
