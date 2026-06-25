@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.18"
+
+      - run: go mod tidy -go=1.18
+
+      - name: Run tests with coverage
+        run: go test -count=1 -coverprofile=coverage.out ./...
+
+      - name: Check 100% coverage
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $NF}' | tr -d '%')
+          echo "Coverage: ${COVERAGE}%"
+          if [ "$COVERAGE" != "100.0" ]; then
+            echo "FAIL: coverage is ${COVERAGE}%, expected 100.0%"
+            exit 1
+          fi
+          echo "PASS: 100% coverage"

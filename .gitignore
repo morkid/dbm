@@ -1,0 +1,11 @@
+/*
+!README.md
+!CONTRIBUTING.md
+!*.go
+!go.mod
+!go.sum
+!.gitignore
+!LICENSE
+!.github/
+internal_test.go
+!driver/
