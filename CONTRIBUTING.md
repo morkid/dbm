@@ -26,7 +26,7 @@ Open an issue on GitHub describing the bug or feature request. Include:
    ```
    gofmt -s -w .
    ```
-7. Commit with a clear message (`git commit -m "add: ..."`)
+7. Commit with a clear message following [Conventional Commits](#commit-messages) (`git commit -m "feat: ..."`)
 8. Push and open a PR
 
 ## Code Style
@@ -37,6 +37,69 @@ Open an issue on GitHub describing the bug or feature request. Include:
 - Avoid introducing new dependencies unnecessarily
 - **Do not add dependencies that require CGO** -- all dependencies must compile with `CGO_ENABLED=0`
 - Avoid modify `seeder.go` , `hook.go` , `connection.go` and `driver.go`
+- **Use English** for all in-code documentation, commit messages, issue reports, and PR descriptions.
+
+## Commit Messages
+
+This project follows [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/). Every commit message MUST use the format below:
+
+```
+<type>[optional scope][!]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### Allowed Types
+
+- `feat` -- a new user-visible feature.
+- `fix` -- a bug fix.
+- `docs` -- documentation-only changes (README, CONTRIBUTING, in-code comments).
+- `style` -- formatting changes that do not affect meaning (e.g. `gofmt -s`, whitespace).
+- `refactor` -- a code change that neither fixes a bug nor adds a feature.
+- `perf` -- a performance improvement.
+- `test` -- adding or fixing tests.
+- `build` -- build system or dependency changes (`go.mod`, driver subpackages).
+- `ci` -- continuous-integration configuration changes.
+- `chore` -- tooling or maintenance tasks that do not modify source or tests.
+- `revert` -- revert a previous commit.
+
+### Scope
+
+A scope is a noun in parentheses naming the area of the codebase affected, for example `feat(connection):` or `fix(mysql):`. Use the driver name (`mysql`, `postgres`, `sqlite`, `clickhouse`, `mssql`, `cockroach`, `tidb`, etc.) for driver-specific changes, or omit the scope when a change spans the core package broadly.
+
+### Breaking Changes
+
+Mark a commit as a breaking change by appending `!` after the type (and scope), for example:
+
+```
+feat(api)!: rename New() to NewConnection()
+```
+
+A breaking change MUST also include a `BREAKING CHANGE:` footer that explains the impact and the migration path for users.
+
+### Examples
+
+```
+feat: add auto-connect via variadic boolean in Register
+fix(connection): resolve race in Connect() when override is false
+docs(contributing): describe conventional commit rules
+perf(mysql): cache prepared-statement compiled DSN
+refactor(driver): consolidate extras encoder
+build(postgres): bump gorm.io/driver/postgres to v1.5.0
+test(sqlite): cover sqlite duplicate index path in Migrate
+```
+
+### Footers
+
+Footers use the `token: value` or `token #value` form and are separated from the body by a blank line. Common tokens:
+
+- `Refs:`, `Closes:`, `Fixes:` -- reference issues by number, for example `Refs: #123`.
+- `BREAKING CHANGE:` -- required when `!` is used in the header; describe the impact and migration path.
+- `Co-authored-by:` -- for co-authored commits.
+
+Use imperative mood in the description ("add caching", not "added caching"), keep the subject line under 72 characters, and wrap the body at 72 characters.
 
 ## Adding a New Database Driver
 

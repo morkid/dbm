@@ -14,15 +14,15 @@
 
 ## Features
 
-- **Multi-Database** -- register and manage multiple named connections
-- **Auto-Migrate** -- run schema migrations automatically on connect
-- **Seeding** -- seed data using functions or interfaces
-- **Hooks** -- lifecycle callbacks when connections are created
-- **Connection Pooling** -- configure max open/idle connections, lifetime, etc.
-- **DSN Parsing** -- parse connection URIs into config structs
-- **Driver Registry** -- easily add new database drivers
-- **Pluggable Drivers** -- MySQL, PostgreSQL, SQLite, SQL Server, ClickHouse, TiDB, CockroachDB available as opt-in subpackages
-- **Tree-Shakeable Imports** -- import only the drivers you need (`driver/sqlite`, `driver/all`, ...)
+- **Multi-Database**: register and manage multiple named connections
+- **Auto-Migrate**: run schema migrations automatically on connect
+- **Seeding**: seed data using functions or interfaces
+- **Hooks**: lifecycle callbacks when connections are created
+- **Connection Pooling**: configure max open/idle connections, lifetime, etc.
+- **DSN Parsing**: parse connection URIs into config structs
+- **Driver Registry**: easily add new database drivers
+- **Pluggable Drivers**: MySQL, PostgreSQL, SQLite, SQL Server, ClickHouse, TiDB, CockroachDB available as opt-in subpackages
+- **Tree-Shakeable Imports**: import only the drivers you need (`driver/sqlite`, `driver/all`, ...)
 
 ## Supported Databases
 
@@ -38,8 +38,8 @@
 
 Drivers live in **per-driver subpackages** under `github.com/morkid/dbm/driver/<name>/` and auto-register themselves via `init()`. Use either:
 
-- `import _ "github.com/morkid/dbm/driver/all"` -- pull in every supported driver
-- `import _ "github.com/morkid/dbm/driver/<name>"` -- import only what you need (smaller binary)
+- `import _ "github.com/morkid/dbm/driver/all"`: pull in every supported driver
+- `import _ "github.com/morkid/dbm/driver/<name>"`: import only what you need (smaller binary)
 
 Note: `dbm` is a deliberately **driver-agnostic core**. Without importing at least one driver subpackage, no `Config{Type: "..."}` value will resolve at `Connect()` time.
 
@@ -51,7 +51,7 @@ Adding a new driver is as simple as creating a `driver/<name>/` subpackage that 
 go get github.com/morkid/dbm
 ```
 
-Each database driver is a **separate opt-in subpackage** -- pick one of these:
+Each database driver is a **separate opt-in subpackage**, pick one of these:
 
 ```
 # Import one specific driver
@@ -197,7 +197,7 @@ mgr.Register("db", dbm.Config{
 >
 > - `all` means the field is applied universally to every driver through `connection_manager.go` (gorm.Config / connection pool / migration hooks).
 > - Driver-specific lists (e.g. `mysql, postgres`) name the driver subpackage (e.g. `driver/mysql/driver.go`) that consumes the field in its own `BuildDSN` / `Open`.
-> - The driver name (`mysql`, `postgres`, `cockroach`, `tidb`, `sqlite`, `sqlserver`, `clickhouse`) is the `Config.Type` value -- it is the key the driver self-registers under inside `dbm`'s registry, not the subpackage directory name (`sqlserver` is registered by the `driver/mssql` subpackage).
+> - The driver name (`mysql`, `postgres`, `cockroach`, `tidb`, `sqlite`, `sqlserver`, `clickhouse`) is the `Config.Type` value, it is the key the driver self-registers under inside `dbm`'s registry, not the subpackage directory name (`sqlserver` is registered by the `driver/mssql` subpackage).
 >
 > Fields not consumed by the active driver are silently ignored or, for SQL Server `SSLMode`, intentionally dropped to avoid producing invalid DSN.
 
@@ -209,7 +209,7 @@ mgr.Register("db", dbm.Config{
 | `User`                          | `string`            | driver-specific         | Username                                                                                                                                                                                                                                                                                                                     | all                                   |
 | `Pass`                          | `string`            | driver-specific         | Password                                                                                                                                                                                                                                                                                                                     | all                                   |
 | `Name`                          | `string`            | `":memory:"` (sqlite) | Database name / path                                                                                                                                                                                                                                                                                                         | all                                   |
-| `SSLMode`                       | `string`            | `""`                  | SSL mode (MySQL:`tls`; Postgres/CockroachDB: `sslmode`; MSSQL: also drives `encrypt` DSN -- `"disable"` -> `encrypt=disabled`, `"require"` -> `encrypt=true`, `"skip-verify"` -> `encrypt=true` + `trustservercertificate=true`, unknown values are ignored; value is lowercased and whitespace-trimmed) | mysql, postgres, cockroach, sqlserver |
+| `SSLMode`                       | `string`            | `""`                  | SSL mode (MySQL:`tls`; Postgres/CockroachDB: `sslmode`; MSSQL: also drives `encrypt` DSN, `"disable"` -> `encrypt=disabled`, `"require"` -> `encrypt=true`, `"skip-verify"` -> `encrypt=true` + `trustservercertificate=true`, unknown values are ignored; value is lowercased and whitespace-trimmed) | mysql, postgres, cockroach, sqlserver |
 | `PreferSimpleProtocol`          | `bool`              | `false`               | Prefer simple protocol (Postgres/CockroachDB:`extra=prefer_simple_protocol:true` decoded in Open, applied via `postgres.New(cfg)`)                                                                                                                                                                                       | postgres, cockroach                   |
 | `ConnectTimeout`                | `int`               | `0`                   | Postgres/CockroachDB connect timeout (sec suffix)                                                                                                                                                                                                                                                                            | postgres, cockroach                   |
 | `WithoutQuotingCheck`           | `bool`              | `false`               | Skip identifier quoting (Postgres/CockroachDB:`extra=without_quoting_check:true` decoded in Open, applied via `postgres.New(cfg)`)                                                                                                                                                                                       | postgres, cockroach                   |
@@ -274,7 +274,7 @@ mgr.Register("db", dbm.Config{
 
 ## Adding a Custom Driver
 
-If the engine you need isn't covered by a built-in `driver/<name>` subpackage (or you just want to point `dbm` at your own `gorm.Dialector`), you can plug it in from anywhere inside your application -- no PRs upstream, no fork. The recipe is: write a small package that calls `dbm.RegisterDriver` once in an `init()` function, then make sure your binary imports that package.
+If the engine you need isn't covered by a built-in `driver/<name>` subpackage (or you just want to point `dbm` at your own `gorm.Dialector`), you can plug it in from anywhere inside your application, no PRs upstream, no fork. The recipe is: write a small package that calls `dbm.RegisterDriver` once in an `init()` function, then make sure your binary imports that package.
 
 A custom driver is the right call when:
 
@@ -296,11 +296,11 @@ type ConnectionBuilder struct {
 
 - **`BuildDSN`** receives a fully-resolved `dbm.Config` (driver defaults already applied) and returns the DSN string your GORM driver expects.
 - **`Open`** receives that DSN and returns the `gorm.Dialector` that GORM dials with.
-- **`DefaultConfig`** provides fallback values for unset `Config` fields -- typically `Host`, `Port`, `User`, `Pass`, `Name`, `Timezone`, and the connection-pool sizing fields.
+- **`DefaultConfig`** provides fallback values for unset `Config` fields, typically `Host`, `Port`, `User`, `Pass`, `Name`, `Timezone`, and the connection-pool sizing fields.
 
 ### Step-by-step example
 
-Below is a self-contained snippet that registers a brand-new `mycustom` dialect and immediately puts it to use. The function does two things, in order. First it calls `dbm.RegisterDriver("mycustom", dbm.ConnectionBuilder{...})`, which tells `dbm` how to turn a `dbm.Config` into a DSN string (`BuildDSN`) and which `gorm.Dialector` to open it with (`Open`). Then it creates a connection manager with `dbm.New()` and routes the new dialect into the manager via `mgr.Register("default", dbm.Config{Type: "mycustom", ...})`. Once `RegisterDriver` has run, `mgr.Connect("default")` and `mgr.Get("default")` flow exactly as they would for any built-in driver -- the dialect behaves like one from `dbm`'s own `driver/<name>` family, just declared inline.
+Below is a self-contained snippet that registers a brand-new `mycustom` dialect and immediately puts it to use. The function does two things, in order. First it calls `dbm.RegisterDriver("mycustom", dbm.ConnectionBuilder{...})`, which tells `dbm` how to turn a `dbm.Config` into a DSN string (`BuildDSN`) and which `gorm.Dialector` to open it with (`Open`). Then it creates a connection manager with `dbm.New()` and routes the new dialect into the manager via `mgr.Register("default", dbm.Config{Type: "mycustom", ...})`. Once `RegisterDriver` has run, `mgr.Connect("default")` and `mgr.Get("default")` flow exactly as they would for any built-in driver, the dialect behaves like one from `dbm`'s own `driver/<name>` family, just declared inline.
 
 ```go
 package mycustom
