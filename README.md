@@ -174,11 +174,36 @@ mgr.Register("app", dbm.Config{
 
 ### Lifecycle Hooks
 
+Register a hook per connection instance (preferred). The callback fires
+once for each successful `Connect()` call on the same `Connection`, not
+for connections opened by other `Connection` instances:
+
 ```go
-dbm.OnConnectionCreated(func(name string, db *gorm.DB) {
+mgr := dbm.New()
+mgr.OnConnectionCreated(func(name string, db *gorm.DB) {
     log.Printf("connected: %s", name)
 })
 ```
+
+The method is chainable, so multiple hooks can be registered in a single
+expression:
+
+```go
+mgr := dbm.New()
+mgr.
+    OnConnectionCreated(observabilityHook).
+    OnConnectionCreated(metricsHook)
+```
+
+The hook fires AFTER every `gorm.io/gorm` plugin on the connection has
+been registered via `dbConn.Use(plugin)` and BEFORE the SQL connection
+pool is configured. A `nil` callback is silently ignored.
+
+**Compat (deprecated):** `dbm.OnConnectionCreated(fn)` still works and
+fires across every `Connect()` call in the process. It is retained for
+backward compatibility and will be removed in a future major release.
+Prefer the per-instance form above, which can be scoped (and isolated
+across tests).
 
 ### Connection Pooling
 

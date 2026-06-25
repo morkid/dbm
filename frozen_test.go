@@ -50,8 +50,8 @@ var protectedFiles = []string{
 // file, see the update workflow in the header doc comment above.
 var frozenDigests = map[string]string{
 	"seeder.go":     "8b25d807e161af168667562e5a57fe3bdd14dd8bc28b3d5aaec2621a311d22db",
-	"hook.go":       "5dec167e4d41bd5697586efc5399c4a47f285c8cd87357864f69418b4ec4759e",
-	"connection.go": "60673c36455f2d1928ec43215b1cf9ecc363517e569f288423bfe4b0572b9546",
+	"hook.go":       "9d74bd002aaec886f53dac22b824cf46dc989910fcdc3a34d005ff9e4c00f845",
+	"connection.go": "f6c656b191b8314be294294ea83b1c0127afe5092a05685d1b16d5b28adceec9",
 	"driver.go":     "fe03bb2934f0d41eac688793f925ebf12520a1f6173109b34bbfa14d9eb666b4",
 }
 

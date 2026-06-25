@@ -494,3 +494,148 @@ func TestConnectWithKeepFKConstraints(t *testing.T) {
 		t.FailNow()
 	}
 }
+
+// TestOnConnectionCreatedPerInstance verifies that a hook registered on one
+// Connection fires only for connections opened through that Connection,
+// not for connections opened by other Connection instances in the same
+// process.
+func TestOnConnectionCreatedPerInstance(t *testing.T) {
+	var instanceCalls []string
+
+	dbm1 := New()
+	dbm1.OnConnectionCreated(func(name string, db *gorm.DB) {
+		instanceCalls = append(instanceCalls, "inst1:"+name)
+	})
+
+	dbm2 := New()
+
+	dbm1.Register("per_inst1", Config{Name: ":memory:"})
+	dbm2.Register("per_inst2", Config{Name: ":memory:"})
+
+	if _, err := dbm1.Connect("per_inst1"); err != nil {
+		t.Fatalf("Connect per_inst1: %v", err)
+	}
+	if _, err := dbm2.Connect("per_inst2"); err != nil {
+		t.Fatalf("Connect per_inst2: %v", err)
+	}
+
+	// Exactly one fire, and only for the connection that owns the hook.
+	if len(instanceCalls) != 1 || instanceCalls[0] != "inst1:per_inst1" {
+		t.Errorf("per-instance fire: expected [inst1:per_inst1], got %v", instanceCalls)
+	}
+}
+
+// TestOnConnectionCreatedSuppressedOnPluginFailure verifies that neither
+// per-instance nor global hooks fire when a configured plugin fails to
+// register. This locks in the documented contract that observers do not
+// see a half-configured dbConn on the plugin-error path.
+//
+// Note: the err returned by Connect() here is currently unreliable
+// because the trailing `dbConn.DB()` call (in connection_manager.go)
+// can succeed and overwrite the plugin error -- a pre-existing quirk
+// unrelated to the OnConnectionCreated refactor. We do not pin that
+// behavior in this test; we only lock in the hook-suppression contract.
+func TestOnConnectionCreatedSuppressedOnPluginFailure(t *testing.T) {
+	var observed []string
+
+	dbm := New()
+	dbm.OnConnectionCreated(func(name string, db *gorm.DB) {
+		observed = append(observed, "per_instance:"+name)
+	})
+	OnConnectionCreated(func(name string, db *gorm.DB) {
+		observed = append(observed, "global:"+name)
+	})
+
+	dbm.Register("plugins_fail_hook", Config{
+		Name:    ":memory:",
+		Plugins: []gorm.Plugin{&testPlugin{fail: true}},
+	})
+	_, _ = dbm.Connect("plugins_fail_hook")
+	if len(observed) != 0 {
+		t.Errorf("hooks should be suppressed on plugin failure, got %v", observed)
+	}
+}
+
+// TestOnConnectionCreatedChainable verifies that OnConnectionCreated
+// returns the receiver so multiple registrations can be expressed as a
+// single chain, and that the chained hooks fire in registration order
+// on every successful Connect.
+func TestOnConnectionCreatedChainable(t *testing.T) {
+	dbm := New()
+	var calls []string
+
+	chained := dbm.
+		OnConnectionCreated(func(name string, db *gorm.DB) {
+			calls = append(calls, "a:"+name)
+		}).
+		OnConnectionCreated(func(name string, db *gorm.DB) {
+			calls = append(calls, "b:"+name)
+		})
+
+	if chained != dbm {
+		t.Fatalf("OnConnectionCreated should return the same receiver, got %T", chained)
+	}
+
+	dbm.Register("chained", Config{Name: ":memory:"})
+	if _, err := dbm.Connect("chained"); err != nil {
+		t.Fatalf("Connect chained: %v", err)
+	}
+
+	if len(calls) != 2 || calls[0] != "a:chained" || calls[1] != "b:chained" {
+		t.Errorf("chained fire order: expected [a:chained b:chained], got %v", calls)
+	}
+}
+
+// TestOnConnectionCreatedIgnoreNil verifies that nil callbacks are
+// silently ignored on both per-instance and global APIs while a non-nil
+// hook still fires (positive control). A no-panic test alone would also
+// pass on regressions that disable dispatch entirely; the non-nil hook
+// confirms the system is alive.
+func TestOnConnectionCreatedIgnoreNil(t *testing.T) {
+	var calls []string
+	dbm := New()
+	dbm.OnConnectionCreated(func(name string, db *gorm.DB) {
+		calls = append(calls, "real:"+name)
+	})
+	dbm.OnConnectionCreated(nil)
+	dbm.OnConnectionCreated(nil)
+	OnConnectionCreated(nil)
+	OnConnectionCreated(nil)
+
+	dbm.Register("nil_hook", Config{Name: ":memory:"})
+	if _, err := dbm.Connect("nil_hook"); err != nil {
+		t.Fatalf("Connect nil_hook: %v", err)
+	}
+	if len(calls) != 1 || calls[0] != "real:nil_hook" {
+		t.Errorf("ignore-nil + positive control: expected [real:nil_hook], got %v", calls)
+	}
+}
+
+// TestOnConnectionCreatedPrecedence verifies that on a single successful
+// Connect, the per-instance hook list fires BEFORE the package-level
+// (compat) global list. Locking this order in a test prevents an
+// accidental inversion in a future refactor. Only the two hooks
+// registered in this test contribute to `observed`; other global hooks
+// registered by prior tests do not append to this slice.
+func TestOnConnectionCreatedPrecedence(t *testing.T) {
+	var observed []string
+
+	dbm := New()
+	dbm.OnConnectionCreated(func(name string, db *gorm.DB) {
+		observed = append(observed, "per_instance:"+name)
+	})
+	OnConnectionCreated(func(name string, db *gorm.DB) {
+		observed = append(observed, "global:"+name)
+	})
+
+	dbm.Register("precedence", Config{Name: ":memory:"})
+	if _, err := dbm.Connect("precedence"); err != nil {
+		t.Fatalf("Connect precedence: %v", err)
+	}
+
+	if len(observed) != 2 ||
+		observed[0] != "per_instance:precedence" ||
+		observed[1] != "global:precedence" {
+		t.Errorf("fire order: expected [per_instance:precedence global:precedence], got %v", observed)
+	}
+}

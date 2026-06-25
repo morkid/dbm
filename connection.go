@@ -39,4 +39,25 @@ type Connection interface {
 	// SetDefault designates the named connection as the one returned by
 	// GetDefault. The named connection itself must already be registered.
 	SetDefault(name string)
+
+	// OnConnectionCreated registers a callback that is invoked once each
+	// time a connection backed by this Connection is successfully opened.
+	// The callback fires AFTER every gorm plugin on the connection has
+	// been registered via dbConn.Use(plugin) and BEFORE the SQL connection
+	// pool is configured. If a configured plugin fails to register, the
+	// hook is silently suppressed so observers do not see a half-
+	// configured dbConn.
+	//
+	// Per-instance hooks are scoped to the receiving Connection: a hook
+	// registered on one mgr does not fire for connect calls on a different
+	// mgr. The receiver is returned so calls can be chained, for example:
+	//
+	//	mgr.OnConnectionCreated(a).OnConnectionCreated(b)
+	//
+	// Hook registration is NOT safe for concurrent calls; serialize
+	// OnConnectionCreated invocations with concurrent Connect() calls in
+	// the calling code or supply your own synchronization.
+	//
+	// A nil callback is silently ignored (no error, no registration).
+	OnConnectionCreated(callback ConnectionCallback) Connection
 }

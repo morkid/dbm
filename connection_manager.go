@@ -27,6 +27,7 @@ type connectionManager struct {
 	dbs         map[string]*gorm.DB
 	configs     map[string]Config
 	defaultName string
+	onCreates   []ConnectionCallback
 }
 
 func (c *connectionManager) Register(name string, config Config, connect ...bool) error {
@@ -141,18 +142,33 @@ func (c *connectionManager) Connect(name string, override ...bool) (dbConn *gorm
 					c.dbs[name] = dbConn
 				}
 
-				if len(onConnectionCreates) > 0 {
-					for i := range onConnectionCreates {
-						if onConnectionCreates[i] != nil {
-							onConnectionCreates[i](name, dbConn)
-						}
-					}
-				}
-
 				for i := range config.Plugins {
 					if config.Plugins[i] != nil {
 						if err = dbConn.Use(config.Plugins[i]); err != nil {
 							break
+						}
+					}
+				}
+
+				if err == nil {
+					// Fire per-instance hooks first, then global hooks (compat shim).
+					// Both lists are skipped if any plugin failed, so observers do
+					// not see a half-configured dbConn.
+					if len(c.onCreates) > 0 {
+						for i := range c.onCreates {
+							// Per-iteration nil check is a paranoia net: the
+							// setter skips nil, but the iteration mirrors the
+							// package-level hook loop for symmetry.
+							if c.onCreates[i] != nil {
+								c.onCreates[i](name, dbConn)
+							}
+						}
+					}
+					if len(onConnectionCreates) > 0 {
+						for i := range onConnectionCreates {
+							if onConnectionCreates[i] != nil {
+								onConnectionCreates[i](name, dbConn)
+							}
 						}
 					}
 				}
@@ -324,6 +340,24 @@ func (c *connectionManager) defaultConfigFor(name string) (*Config, error) {
 	}
 
 	return config, nil
+}
+
+// OnConnectionCreated registers a callback that is invoked from inside
+// Connect() each time a connection backed by this manager is successfully
+// opened. The callback fires AFTER every gorm plugin on the connection
+// has been registered via dbConn.Use(plugin) and BEFORE the SQL connection
+// pool is configured. The method returns the receiver so calls can be
+// chained, and a nil callback is silently ignored.
+//
+// Hook registration is NOT safe for concurrent calls; serialize
+// OnConnectionCreated invocations with concurrent Connect() calls or
+// supply your own synchronization.
+func (c *connectionManager) OnConnectionCreated(callback ConnectionCallback) Connection {
+	if callback == nil {
+		return c
+	}
+	c.onCreates = append(c.onCreates, callback)
+	return c
 }
 
 func (c *connectionManager) Get(name string) (*gorm.DB, error) {
