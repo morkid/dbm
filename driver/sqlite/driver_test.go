@@ -108,3 +108,32 @@ func TestSqliteConnectInMemory(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestSqliteFileDSN(t *testing.T) {
+	dsn := new(dbm.Config)
+	dsn.FromDSN("sqlite:///tmp/demo.db?name=default")
+	if dsn.Name != "/tmp/demo.db" {
+		t.Errorf("expected name to be /tmp/demo.db, got: %s", dsn.Name)
+	}
+	if dsn.Host != "localhost" {
+		t.Errorf("expected host to localhost, got: %s", dsn.Host)
+	}
+
+	dsn.FromDSN("sqlite://tmp/demo.db?name=default")
+
+	if dsn.Name != "tmp/demo.db" {
+		t.Errorf("expected host to be tmp/demo.db, got: %s", dsn.Host)
+	}
+	if dsn.Host != "tmp" {
+		t.Errorf("expected host to tmp, got: %s", dsn.Host)
+	}
+
+	dsn.FromDSN("sqlite:///C:/tmp/demo.db?name=default")
+
+	if dsn.Name != "/C:/tmp/demo.db" {
+		t.Errorf("expected host to be /C:/tmp/demo.db, got: %s", dsn.Host)
+	}
+	if dsn.Host != "localhost" {
+		t.Errorf("expected host to localhost, got: %s", dsn.Host)
+	}
+}

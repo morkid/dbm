@@ -319,6 +319,7 @@ func (c *Config) FromDSN(dsn string) error {
 		}
 
 		c.Port = uri.Port()
+		c.Name = strings.Trim(uri.Path, "/")
 		if c.Port == "" {
 			switch uri.Scheme {
 			case "mysql":
@@ -329,12 +330,13 @@ func (c *Config) FromDSN(dsn string) error {
 				c.Port = "26257"
 			case "tidb":
 				c.Port = "4000"
+			case "sqlite":
+				c.Name = uri.Hostname() + uri.Path
 			}
 		}
 
 		c.User = uri.User.Username()
 		c.Pass, _ = uri.User.Password()
-		c.Name = strings.Trim(uri.Path, "/")
 
 		var val url.Values
 		val, err = url.ParseQuery(uri.RawQuery)
