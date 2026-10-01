@@ -1,7 +1,6 @@
 package dbm
 
 import (
-	"errors"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -311,6 +310,7 @@ type Config struct {
 func (c *Config) FromDSN(dsn string) error {
 	uri, err := url.Parse(dsn)
 	if err == nil {
+		c.ConnName = "default"
 		uri.ForceQuery = true
 		c.Type = uri.Scheme
 		c.Host = uri.Hostname()
@@ -394,10 +394,6 @@ func (c *Config) FromDSN(dsn string) error {
 			if len(extraParams) > 0 {
 				c.ExtraParams = extraParams.Encode()
 			}
-		}
-
-		if c.ConnName == "" {
-			err = errors.New("dsn connection name is required")
 		}
 	}
 

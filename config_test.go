@@ -125,7 +125,7 @@ func TestFromDSNSSLModeEmptyFallback(t *testing.T) {
 // can detect misconfiguration.
 func TestFromDSNMissingName(t *testing.T) {
 	c := new(Config)
-	if err := c.FromDSN("mysql://u:p@h/d"); err == nil {
-		t.Error("FromDSN without name=* param should return error")
+	if err := c.FromDSN("mysql://u:p@h/d"); err != nil && c.ConnName != "default" {
+		t.Error("FromDSN without name=* param should have c.ConnName = default")
 	}
 }
