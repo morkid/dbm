@@ -310,7 +310,9 @@ type Config struct {
 func (c *Config) FromDSN(dsn string) error {
 	uri, err := url.Parse(dsn)
 	if err == nil {
-		c.ConnName = "default"
+		if c.ConnName == "" {
+			c.ConnName = "default"
+		}
 		uri.ForceQuery = true
 		c.Type = uri.Scheme
 		c.Host = uri.Hostname()
