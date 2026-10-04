@@ -380,8 +380,8 @@ func (c *Config) FromDSN(dsn string) error {
 				case "auto_migrate":
 					c.AutoMigrate = val.Get(k) == "true"
 
-				case "sslmode":
-					c.SSLMode = val.Get("sslmode")
+				case "sslmode", "ssl_mode":
+					c.SSLMode = val.Get(k)
 					if c.SSLMode == "" {
 						c.SSLMode = "disable"
 					}

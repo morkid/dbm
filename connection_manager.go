@@ -38,7 +38,10 @@ func (c *connectionManager) Register(name string, config Config, connect ...bool
 
 	var err error
 
-	if _, ok := c.dbs[name]; !ok {
+	_, ok := drivers[config.Type]
+	if config.Type != "" && !ok {
+		err = fmt.Errorf("failed to load driver %v", config.Type)
+	} else if _, ok := c.dbs[name]; !ok {
 		if len(c.configs) == 0 {
 			c.SetDefault(name)
 		}
@@ -388,7 +391,50 @@ func (c *connectionManager) GetDefault() *gorm.DB {
 }
 
 // New creates a new connection manager
-// It returns a pointer to a connectionManager struct
-func New() Connection {
-	return new(connectionManager)
+// It returns a pointer to a connectionManager struct or panic if any invalid config
+func New(configs ...any) Connection {
+	conn, err := NewWithConfig(false, configs...)
+	if err != nil {
+		panic(err)
+	}
+
+	return conn
+}
+
+// NewWithConfig a new connection with configs
+// It returns a pointer to a connectionManager struct and errors
+func NewWithConfig(autoConnect bool, configs ...any) (conn Connection, err error) {
+	conn = new(connectionManager)
+
+	hasDefault := false
+	for _, cfg := range configs {
+		if err != nil {
+			break
+		}
+
+		if cfg == nil {
+			continue
+		}
+
+		switch v := cfg.(type) {
+		case string:
+			conf := Config{}
+			conf.FromDSN(v)
+			if strings.EqualFold(conf.ConnName, "default") && hasDefault {
+				continue
+			}
+			hasDefault = strings.EqualFold(conf.ConnName, "default")
+			err = conn.Register(conf.ConnName, conf, autoConnect)
+		case Config:
+			if v.ConnName == "" || strings.EqualFold(v.ConnName, "default") && hasDefault {
+				continue
+			}
+
+			hasDefault = strings.EqualFold(v.ConnName, "default")
+			err = conn.Register(v.ConnName, v, autoConnect)
+			log.Println(err)
+		}
+	}
+
+	return conn, err
 }

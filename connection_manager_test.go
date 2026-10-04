@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -65,96 +66,107 @@ func (s *SeedSample) Seed(tx *gorm.DB) error {
 }
 
 func TestConnectionManager(t *testing.T) {
-	password := url.QueryEscape("P@ssw0rd!:$#")
-	uri, e := url.Parse(fmt.Sprintf("mysql://username:%s@localhost:9000/example?charset=utf8mb4&parseTime=True&loc=Local", password))
-	fmt.Println(e)
-	jsonURI, e := json.MarshalIndent(uri, "", "  ")
-	fmt.Println(string(jsonURI), e)
-	fmt.Println(uri.User.Username())
-	pass, ok := uri.User.Password()
-	fmt.Println(pass, ok, password)
+	t.Run("basic tests", func(t *testing.T) {
+		password := url.QueryEscape("P@ssw0rd!:$#")
+		uri, e := url.Parse(fmt.Sprintf("mysql://username:%s@localhost:9000/example?charset=utf8mb4&parseTime=True&loc=Local", password))
+		fmt.Println(e)
+		jsonURI, e := json.MarshalIndent(uri, "", "  ")
+		fmt.Println(string(jsonURI), e)
+		fmt.Println(uri.User.Username())
+		pass, ok := uri.User.Password()
+		fmt.Println(pass, ok, password)
 
-	OnConnectionCreated(func(name string, db *gorm.DB) {
-		if utils.AssertEqual(name, "") && utils.AssertEqual(db, nil) {
-			t.Error("Empty name or db")
+		OnConnectionCreated(func(name string, db *gorm.DB) {
+			if utils.AssertEqual(name, "") && utils.AssertEqual(db, nil) {
+				t.Error("Empty name or db")
+				t.FailNow()
+			}
+		})
+		dbm := New()
+		c1 := "c1"
+		dbm.Register(c1, Config{
+			AutoMigrate:    true,
+			MigrationItems: []any{&DemoModel{}},
+			MigrationSeeds: []any{&DemoModel{}, SeedSample2, &SeedSample{}},
+		})
+		_, err := dbm.Connect(c1)
+		if !utils.AssertEqual(err, nil) {
+			t.Error(err)
+			t.FailNow()
+		}
+
+		_, err = dbm.Connect("example")
+		if utils.AssertEqual(err == nil, true) {
+			t.FailNow()
+		}
+
+		func() {
+			defer func() {
+				if recover() != nil {
+					t.Error("GetDefault should not return panic if no default connection")
+					t.FailNow()
+				}
+			}()
+
+			db := dbm.GetDefault()
+			if utils.AssertEqual(db, nil) {
+				t.Error("GetDefault not returning value")
+				t.FailNow()
+			}
+		}()
+
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Error("GetDefault must be return panic if no default connection")
+					t.FailNow()
+				}
+			}()
+
+			dbm.SetDefault("unavailable")
+			dbm.GetDefault()
+		}()
+
+		dbm2 := New()
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Error("GetDefault must be return panic if no default connection")
+					t.FailNow()
+				}
+			}()
+
+			dbm2.GetDefault()
+		}()
+
+		err = dbm2.Register("example", Config{}, true)
+		if !utils.AssertEqual(err, nil) {
+			t.Error("auto connect on register should be success")
+			t.FailNow()
+		}
+
+		dbm2.Register("unavailabledriver", Config{Type: "unavailabledriver"})
+		_, err = dbm2.Connect("unavailabledriver")
+		if utils.AssertEqual(err, nil) {
+			t.Error("unavailabledriver should be error")
+			t.FailNow()
+		}
+
+		_, err = dbm2.(*connectionManager).createDialect("notavailable")
+		if utils.AssertEqual(err, nil) {
+			t.Error("notavailable should be error")
 			t.FailNow()
 		}
 	})
-	dbm := New()
-	c1 := "c1"
-	dbm.Register(c1, Config{
-		AutoMigrate:    true,
-		MigrationItems: []any{&DemoModel{}},
-		MigrationSeeds: []any{&DemoModel{}, SeedSample2, &SeedSample{}},
-	})
-	_, err := dbm.Connect(c1)
-	if !utils.AssertEqual(err, nil) {
-		t.Error(err)
-		t.FailNow()
-	}
 
-	_, err = dbm.Connect("example")
-	if utils.AssertEqual(err == nil, true) {
-		t.FailNow()
-	}
-
-	func() {
-		defer func() {
-			if recover() != nil {
-				t.Error("GetDefault should not return panic if no default connection")
-				t.FailNow()
-			}
-		}()
-
-		db := dbm.GetDefault()
-		if utils.AssertEqual(db, nil) {
-			t.Error("GetDefault not returning value")
+	t.Run("test unavailable driver", func(t *testing.T) {
+		dbm3 := new(connectionManager)
+		dbm3.configs = map[string]Config{"unavailabledriver": {Type: "unavailabledriver"}}
+		if _, err := dbm3.createDialect("unavailabledriver"); err == nil {
+			t.Fatalf("unavailable driver should return error")
 			t.FailNow()
 		}
-	}()
-
-	func() {
-		defer func() {
-			if recover() == nil {
-				t.Error("GetDefault must be return panic if no default connection")
-				t.FailNow()
-			}
-		}()
-
-		dbm.SetDefault("unavailable")
-		dbm.GetDefault()
-	}()
-
-	dbm2 := New()
-	func() {
-		defer func() {
-			if recover() == nil {
-				t.Error("GetDefault must be return panic if no default connection")
-				t.FailNow()
-			}
-		}()
-
-		dbm2.GetDefault()
-	}()
-
-	err = dbm2.Register("example", Config{}, true)
-	if !utils.AssertEqual(err, nil) {
-		t.Error("auto connect on register should be success")
-		t.FailNow()
-	}
-
-	dbm2.Register("unavailabledriver", Config{Type: "unavailabledriver"})
-	_, err = dbm2.Connect("unavailabledriver")
-	if utils.AssertEqual(err, nil) {
-		t.Error("unavailabledriver should be error")
-		t.FailNow()
-	}
-
-	_, err = dbm2.(*connectionManager).createDialect("notavailable")
-	if utils.AssertEqual(err, nil) {
-		t.Error("notavailable should be error")
-		t.FailNow()
-	}
+	})
 
 }
 
@@ -638,4 +650,44 @@ func TestOnConnectionCreatedPrecedence(t *testing.T) {
 		observed[1] != "global:precedence" {
 		t.Errorf("fire order: expected [per_instance:precedence global:precedence], got %v", observed)
 	}
+}
+
+// TestNewWithConfig verifies new Connection with configurations
+func TestNewWithConfig(t *testing.T) {
+	t.Run("direct call", func(t *testing.T) {
+		configs := []any{
+			nil,
+			"sqlite://",
+			"sqlite://",
+			Config{Type: "sqlite", ConnName: "default"},
+			Config{Type: "mysql", ConnName: "mysql"},
+			Config{Type: "sqlite", ConnName: "default"},
+		}
+
+		dbm, err := NewWithConfig(true, configs...)
+		if !strings.EqualFold(dbm.GetDefault().Config.Dialector.Name(), "sqlite") {
+			t.Fatalf("unexpected configuration %v", dbm.GetDefault().Config.Dialector.Name())
+		}
+
+		if err == nil {
+			t.Fatal("ConnectionManager should be error because no mysql driver loaded")
+		}
+	})
+
+	t.Run("new call sqlite", func(t *testing.T) {
+		dbm := New("sqlite://")
+		dbm.Connect("default")
+		if !strings.EqualFold(dbm.GetDefault().Config.Dialector.Name(), "sqlite") {
+			t.Fatalf("unexpected configuration %v", dbm.GetDefault().Config.Dialector.Name())
+		}
+	})
+
+	t.Run("new call error", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Fatal("call should be error because no mysql driver loaded")
+			}
+		}()
+		New("mysql://")
+	})
 }
